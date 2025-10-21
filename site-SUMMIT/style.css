@@ -9,22 +9,40 @@
     --light-text-color: #6c757d;
     --border-color: #dee2e6;
     --error-color: #dc3545;
+    --success-color: #28a745; /* Novo: Cor verde de sucesso */
     --sidebar-bg: #1e293b;
     --sidebar-text: #cbd5e1;
     --sidebar-text-hover: #ffffff;
     --sidebar-active-bg: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    
+    /* Sombra para o logo no LOGIN (mais fraca/suave) */
+    --logo-shadow-auth: 0 4px 8px rgba(0, 0, 0, 0.2); 
+
+    /* Sombra para o logo na SIDEBAR (mais forte, no fundo escuro) */
+    --logo-shadow-sidebar: 0 3px 6px rgba(0, 0, 0, 0.7); 
 }
 
 body { font-family: 'Poppins', sans-serif; color: var(--text-color); margin: 0; background-color: var(--background-color); }
 .app-container { display: flex; width: 100%; min-height: 100vh; }
 #content-wrapper { flex-grow: 1; transition: margin-left 0.3s ease; display: flex; flex-direction: column; }
 
-/* --- Barra de Navegação Lateral (Sidebar) com logo mais visível --- */
-/* (Sem alterações) */
+/* --- Barra de Navegação Lateral (Sidebar) --- */
 #sidebar { width: 260px; min-height: 100vh; background: var(--sidebar-bg); color: var(--sidebar-text); position: fixed; top: 0; left: 0; z-index: 1000; transition: all 0.3s ease; display: flex; flex-direction: column; }
-.sidebar-header { padding: 25px 20px; text-align: center; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; }
-.sidebar-logo { height: 45px; width: 45px; margin-right: 12px; transition: all 0.3s ease; }
-.sidebar-title { font-size: 1.3rem; font-weight: 600; color: white; opacity: 1; transition: opacity 0.3s ease; }
+.sidebar-header { padding: 30px 20px; text-align: center; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; }
+.sidebar-logo { 
+    height: 70px; 
+    width: 70px; 
+    margin-right: 15px; 
+    transition: all 0.3s ease; 
+    filter: drop-shadow(var(--logo-shadow-sidebar)); 
+}
+.sidebar-title { 
+    font-size: 1.2rem; 
+    font-weight: 700; 
+    color: white; 
+    opacity: 1; 
+    transition: opacity 0.3s ease; 
+}
 #sidebar .components { padding: 20px 0; flex-grow: 1; }
 #sidebar ul li a { padding: 15px 25px; display: flex; align-items: center; color: var(--sidebar-text); font-size: 1rem; font-weight: 500; text-decoration: none; transition: all 0.2s ease; border-left: 3px solid transparent; }
 #sidebar ul li a:hover { color: var(--sidebar-text-hover); background: rgba(255, 255, 255, 0.05); border-left: 3px solid var(--secondary-color); }
@@ -33,12 +51,11 @@ body { font-family: 'Poppins', sans-serif; color: var(--text-color); margin: 0; 
 .logout-section { padding: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); }
 body.sidebar-collapsed #sidebar { width: 80px; }
 body.sidebar-collapsed .sidebar-title, body.sidebar-collapsed #sidebar ul li a span { display: none; }
-body.sidebar-collapsed .sidebar-logo { margin-right: 0; }
+body.sidebar-collapsed .sidebar-logo { margin-right: 0; height: 50px; width: 50px; } 
 body.sidebar-collapsed #content-wrapper { margin-left: 80px; }
 #content-wrapper { margin-left: 260px; }
 
 /* --- Cabeçalho Superior com Busca --- */
-/* (Sem alterações) */
 .app-header { background: #fff; padding: 10px 25px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 999; }
 .header-left { display: flex; align-items: center; gap: 15px; }
 #sidebar-toggle { font-size: 1.5rem; color: var(--light-text-color); background: transparent; border: none; }
@@ -47,8 +64,7 @@ body.sidebar-collapsed #content-wrapper { margin-left: 80px; }
 #header-user-info { font-weight: 500; }
 #main-content { padding: 25px; flex-grow: 1; }
 
-/* --- Subcabeçalho do Conteúdo (para título e filtros) --- */
-/* (Sem alterações) */
+/* --- Subcabeçalho do Conteúdo --- */
 .content-header {
     display: flex;
     justify-content: space-between;
@@ -59,28 +75,115 @@ body.sidebar-collapsed #content-wrapper { margin-left: 80px; }
     margin-bottom: 0;
 }
 
-/* --- Container de Autenticação (sem alteração) --- */
-/* (Sem alterações) */
+/* --- Container de Autenticação (Login/Register) --- */
 .auth-container { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 100vh; padding: 20px; }
 .auth-wrapper { display: flex; width: 100%; max-width: 1000px; background-color: var(--form-bg-color); border-radius: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); overflow: hidden; }
+
+/* --- Seção de Boas-Vindas (Fundo Gradiente) --- */
 .welcome-section { background: linear-gradient(45deg, var(--primary-color), var(--secondary-color)); color: white; padding: 60px 40px; width: 45%; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-.logo-img { max-width: 250px; margin-bottom: 1rem; }
+
+/* Estilização da Logo na Tela de Login */
+.logo-img { 
+    max-width: 250px; 
+    margin-bottom: 1.5rem; 
+    filter: drop-shadow(var(--logo-shadow-auth)); 
+}
+
+.welcome-section .content .lead {
+    font-size: 1.15rem;
+    font-weight: 300;
+    opacity: 0.9;
+    color: #f8f8f8; 
+}
+
 .form-section { width: 55%; padding: 40px; display: flex; justify-content: center; align-items: center; }
 @media (max-width: 992px) { .welcome-section { display: none; } .form-section { width: 100%; } }
 
+/* Estilização do Título do Formulário */
+.form-box .form-title {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: var(--primary-color); 
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border-color); 
+    padding-bottom: 10px;
+    text-align: center;
+}
+
 /* --- Cards de Tarefa e Ações Laterais --- */
-/* (Sem alterações) */
 .card { border: none; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06); transition: all 0.3s ease; position: relative; overflow: hidden;}
 .card:hover { transform: translateY(-5px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1); }
 .task-card .card-body { padding-right: 50px; }
-.task-actions { position: absolute; top: 10px; right: -50px; transition: right 0.3s ease; display: flex; flex-direction: column; gap: 5px; padding: 10px; }
+.task-actions { 
+    position: absolute; 
+    top: 5px; /* Subindo um pouco mais */
+    right: -50px; 
+    transition: right 0.3s ease; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 5px; 
+    padding: 10px; 
+    z-index: 10; /* Garante que os botões fiquem por cima */
+}
 .card:hover .task-actions { right: 0; }
-.task-actions .btn { width: 38px; height: 38px; display: flex; justify-content: center; align-items: center; border-radius: 50%; }
-.completed-task .card-body { background-color: #f8f9fa; opacity: 0.7; }
+.task-actions button {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 10;
+    width: 38px; /* Mantendo o tamanho redondo */
+    height: 38px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%; /* Fazendo os botões totalmente redondos */
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none; /* Removendo borda */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Sombra leve para profundidade */
+}
+.task-actions button i {
+    font-size: 1rem;
+}
+
+/* Estilo do botão padrão (Editar/Excluir) */
+.task-actions .btn-outline-secondary {
+    background-color: #fff;
+    color: var(--light-text-color);
+}
+.task-actions .btn-outline-secondary:hover {
+    background-color: var(--light-text-color);
+    color: white;
+    transform: scale(1.05);
+}
+
+/* Estilo do botão de Excluir */
+.task-actions .btn-danger {
+    background-color: var(--error-color);
+    color: white;
+}
+.task-actions .btn-danger:hover {
+    background-color: #c82333; /* Vermelho mais escuro no hover */
+    transform: scale(1.05);
+}
+
+/* Estilo do botão de Concluir/Reabrir (Verde de sucesso) */
+.task-actions .btn-success {
+    background-color: var(--success-color);
+    color: white;
+}
+.task-actions .btn-success:hover {
+    background-color: #1e7e34; /* Verde mais escuro no hover */
+    transform: scale(1.05);
+}
+
+/* Correções para o texto da tarefa concluída */
+.completed-task .card-body { background-color: #f8f9fa; opacity: 0.8; }
 .completed-task h5, .completed-task p { text-decoration: line-through; }
-/* ====== CORREÇÃO DO BOTÃO CONCLUIR / REABRIR ====== */
+/* -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- */
+
+
 /* --- DASHBOARD DE ANÁLISE --- */
-/* (Sem alterações) */
 .analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; }
 .stat-card { background-color: #fff; border-radius: 12px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); text-align: center; }
 .stat-card i { font-size: 2.5rem; margin-bottom: 10px; color: var(--primary-color); }
@@ -133,8 +236,7 @@ body.sidebar-collapsed #content-wrapper { margin-left: 80px; }
 }
 
 
-/* --- CHAT e outros (sem alteração) --- */
-/* (Sem alterações) */
+/* --- CHAT e outros --- */
 #chat-container { position: fixed; bottom: 20px; right: 20px; z-index: 1050; }
 #chat-bubble { position: relative; width: 60px; height: 60px; background: linear-gradient(45deg, var(--primary-color), var(--secondary-color)); color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 2rem; cursor: pointer; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); transition: all 0.3s ease; }
 #chat-bubble:hover { transform: scale(1.1); }
@@ -145,77 +247,17 @@ body.sidebar-collapsed #content-wrapper { margin-left: 80px; }
 .comment { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #eee; }
 .comment:last-child { border-bottom: none; }
 
-/*.task-card .task-actions button {
-  pointer-events: auto !important;
-  position: relative !important;
-  z-index: 10 !important;
+
+/* --- NOVA PÁGINA DE LOG DE ATIVIDADES --- */
+.activity-log-table {
+    font-size: 0.95rem;
 }
-
-.task-card .task-actions {
-  position: relative !important;
-  z-index: 5 !important;
+.activity-log-table th {
+    font-weight: 600;
 }
-
-/* Garante que nenhum elemento invisível bloqueie os cliques */
-/*.task-card, .card, .card-body {
-  pointer-events: auto !important;
+.activity-log-table td {
+    vertical-align: middle;
 }
-
-/* ====== AJUSTE DO DESIGN DO BOTÃO CONCLUIR / REABRIR ====== */
-
-/* Garante que os botões fiquem clicáveis */
-.task-card .task-actions button {
-  pointer-events: auto !important;
-  position: relative;
-  z-index: 10;
+.activity-log-table td:first-child {
+    color: var(--primary-color);
 }
-
-/* Aparência igual aos botões antigos */
-.task-card .task-actions button {
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background-color: #f8f9fa;
-  color: #333;
-  padding: 6px 10px;
-  font-size: 0.9rem;
-  margin-left: 4px;
-  transition: all 0.2s ease;
-}
-
-/* Efeitos de hover iguais aos antigos */
-.task-card .task-actions button:hover {
-  background-color: #e9ecef;
-  border-color: #adb5bd;
-  color: #000;
-}
-
-/* Botão "Concluir" (verde) */
-.task-card .task-actions .btn-success {
-  background-color: #28a745;
-  color: #fff;
-  border-color: #28a745;
-}
-
-.task-card .task-actions .btn-success:hover {
-  background-color: #218838;
-  border-color: #1e7e34;
-}
-
-/* Botão "Reabrir" (cinza) */
-.task-card .task-actions .btn-outline-secondary {
-  background-color: #f8f9fa;
-  border-color: #6c757d;
-  color: #6c757d;
-}
-
-.task-card .task-actions .btn-outline-secondary:hover {
-  background-color: #6c757d;
-  color: #fff;
-}
-
-/* Mantém o layout dos ícones igual aos antigos */
-.task-card .task-actions i {
-  font-size: 1rem;
-  vertical-align: middle;
-}
-
