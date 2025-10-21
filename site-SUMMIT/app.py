@@ -10,7 +10,6 @@ app = Flask(__name__)
 CORS(app)
 
 # --- Configurações do banco de dados MySQL ---
-# (Sem alterações)
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
 app.config['MYSQL_PASSWORD'] = 'Foda12345'
@@ -20,20 +19,40 @@ app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 mysql = MySQL(app)
 
 # --- Funções de Criptografia ---
-# (Sem alterações)
 def create_salt():
     return os.urandom(16).hex()
 
 def hash_password(password, salt):
     salted_password = password.encode('utf-8') + salt.encode('utf-8')
+    # --- CORREÇÃO AQUI ---
     return hashlib.sha256(salted_password).hexdigest()
+    # ---------------------
+
+# --- NOVA FUNÇÃO AUXILIAR DE LOG ---
+def log_activity(user_id, action_text):
+    """Registra uma ação no banco de dados activity_log."""
+    if not user_id:
+        # Não registra se não soubermos quem fez a ação
+        return
+    try:
+        cursor = mysql.connection.cursor()
+        cursor.execute(
+            "INSERT INTO activity_log (user_id, action_text) VALUES (%s, %s)",
+            (user_id, action_text)
+        )
+        mysql.connection.commit()
+        cursor.close()
+    except Exception as e:
+        # Em um app real, isso deveria ser logado em um arquivo de erro
+        print(f"Erro ao registrar atividade: {e}")
+
 
 # --- Rotas de Autenticação ---
 @app.route('/api/register', methods=['POST'])
 def register():
+    # (Sem alterações na lógica principal, exceto pelo log)
     data = request.json
     username, password, role, email = data.get('username'), data.get('password'), data.get('role'), data.get('email')
-    # NOVO CAMPO
     job_title = data.get('job_title') or 'Funcionário' 
     admin_key_received = data.get('adminKey')
     ADMIN_REGISTRATION_KEY = 'admin-secret-key'
@@ -59,23 +78,26 @@ def register():
     password_hash = hash_password(password, salt)
     needs_password_reset = (role == 'funcionario')
     
-    # QUERY ATUALIZADA
     cursor.execute(
         "INSERT INTO users (username, password_hash, salt, role, email, needs_password_reset, job_title) VALUES (%s, %s, %s, %s, %s, %s, %s)",
         (username, password_hash, salt, role, email, needs_password_reset, job_title)
     )
     mysql.connection.commit()
+    
+    # Log: Pega o ID do usuário recém-criado
+    new_user_id = cursor.lastrowid
+    log_activity(new_user_id, f"se registrou no sistema como {role}.")
+    
     cursor.close()
     return jsonify({'message': 'Usuário registrado com sucesso.'}), 201
 
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    # (Sem alterações, mas a query agora busca job_title)
+    # (Adicionado log de atividade)
     data = request.json
     username, password = data.get('username'), data.get('password')
     cursor = mysql.connection.cursor()
-    # QUERY ATUALIZADA
     cursor.execute("SELECT id, username, password_hash, salt, role, email, needs_password_reset, job_title FROM users WHERE username = %s", (username,))
     user_row = cursor.fetchone()
     cursor.close()
@@ -91,16 +113,19 @@ def login():
         'username': user_row['username'],
         'email': user_row['email'],
         'role': user_row['role'],
-        'jobTitle': user_row['job_title'], # NOVO CAMPO
+        'jobTitle': user_row['job_title'],
         'needsPasswordReset': bool(user_row['needs_password_reset'])
     }
+    
+    # NOVO LOG:
+    log_activity(user_data['id'], f"fez login.")
 
     return jsonify({'message': 'Login bem-sucedido.', 'user': user_data}), 200
 
 
 @app.route('/api/forgot-password', methods=['POST'])
 def forgot_password():
-    # (Sem alterações)
+    # (Sem alterações, pois o usuário não está logado)
     email = request.json.get('email')
     if not email:
         return jsonify({'error': 'O e-mail é obrigatório.'}), 400
@@ -117,6 +142,10 @@ def forgot_password():
             (password_hash, user['id'])
         )
         mysql.connection.commit()
+        
+        # NOVO LOG:
+        log_activity(user['id'], "solicitou uma redefinição de senha.")
+        
         cursor.close()
         return jsonify({
             'message': 'Uma nova senha temporária foi gerada com sucesso. Faça login para alterá-la.',
@@ -129,7 +158,7 @@ def forgot_password():
 
 @app.route('/api/user/reset-password', methods=['POST'])
 def reset_password():
-    # (Sem alterações)
+    # (Adicionado log de atividade)
     data = request.json
     user_id, new_password = data.get('userId'), data.get('newPassword')
 
@@ -151,12 +180,17 @@ def reset_password():
     )
     mysql.connection.commit()
     cursor.close()
+    
+    # NOVO LOG:
+    log_activity(user_id, "redefiniu sua senha após login forçado.")
+    
     return jsonify({'message': 'Senha atualizada com sucesso.'})
 
 
 # --- NOVA ROTA PARA MUDAR SENHA (LOGADO) ---
 @app.route('/api/user/change-password', methods=['POST'])
 def change_password():
+    # (Adicionado log de atividade)
     data = request.json
     user_id, old_password, new_password = data.get('userId'), data.get('oldPassword'), data.get('newPassword')
 
@@ -171,12 +205,10 @@ def change_password():
         cursor.close()
         return jsonify({'error': 'Usuário não encontrado.'}), 404
         
-    # Verifica a senha antiga
     if hash_password(old_password, user['salt']) != user['password_hash']:
         cursor.close()
         return jsonify({'error': 'Senha antiga incorreta.'}), 401
 
-    # Atualiza para a nova senha
     new_password_hash = hash_password(new_password, user['salt'])
     cursor.execute(
         "UPDATE users SET password_hash = %s, needs_password_reset = 0 WHERE id = %s",
@@ -184,13 +216,17 @@ def change_password():
     )
     mysql.connection.commit()
     cursor.close()
+    
+    # NOVO LOG:
+    log_activity(user_id, "alterou sua senha através do perfil.")
+    
     return jsonify({'message': 'Senha atualizada com sucesso.'})
 
 
 @app.route('/api/user/<int:user_id>', methods=['GET'])
 def get_user_details(user_id):
+    # (Sem alterações)
     cursor = mysql.connection.cursor()
-    # QUERY ATUALIZADA
     cursor.execute("SELECT id, username, email, role, job_title FROM users WHERE id = %s", (user_id,))
     user = cursor.fetchone()
     cursor.close()
@@ -200,10 +236,10 @@ def get_user_details(user_id):
 
 @app.route('/api/user/<int:user_id>', methods=['PUT'])
 def update_user_profile(user_id):
+    # (Adicionado log de atividade)
     data = request.json
     new_username = data.get('username')
     new_email = data.get('email')
-    # NOVO CAMPO
     new_job_title = data.get('job_title') 
 
     if not new_username or not new_email:
@@ -220,25 +256,26 @@ def update_user_profile(user_id):
         cursor.close()
         return jsonify({'error': 'Este e-mail já está em uso.'}), 409
 
-    # QUERY ATUALIZADA
     cursor.execute(
         "UPDATE users SET username = %s, email = %s, job_title = %s WHERE id = %s", 
         (new_username, new_email, new_job_title, user_id)
     )
     mysql.connection.commit()
     
-    # QUERY ATUALIZADA
     cursor.execute("SELECT id, username, email, role, job_title FROM users WHERE id = %s", (user_id,))
     updated_user = cursor.fetchone()
     cursor.close()
+    
+    # NOVO LOG:
+    log_activity(user_id, f"atualizou seu perfil (usuário: {new_username}).")
     
     return jsonify({'message': 'Perfil atualizado com sucesso.', 'user': updated_user})
 
 
 @app.route('/api/users/employees', methods=['GET'])
 def get_employees():
+    # (Sem alterações)
     cursor = mysql.connection.cursor()
-    # QUERY ATUALIZADA (para a nova página de equipe)
     cursor.execute("SELECT id, username, email, job_title FROM users WHERE role = 'funcionario' ORDER BY username ASC")
     employees = cursor.fetchall()
     cursor.close()
@@ -251,7 +288,6 @@ def get_employees():
 def get_analytics():
     cursor = mysql.connection.cursor()
     
-    # Contagens gerais
     cursor.execute("SELECT COUNT(*) as total FROM tasks")
     total_tasks = cursor.fetchone()['total']
     
@@ -261,11 +297,9 @@ def get_analytics():
     cursor.execute("SELECT COUNT(*) as total FROM tasks WHERE completed = 0")
     pending_tasks = cursor.fetchone()['total']
 
-    # Contagem de tarefas atrasadas (não completas e com prazo no passado)
     cursor.execute("SELECT COUNT(*) as total FROM tasks WHERE completed = 0 AND due_date < CURDATE()")
     overdue_tasks = cursor.fetchone()['total']
     
-    # Usuário com mais tarefas atribuídas
     query = """
         SELECT u.username, COUNT(t.id) as task_count
         FROM tasks t
@@ -290,9 +324,9 @@ def get_analytics():
 
 
 # --- Rotas de Tarefas ---
-# (Sem alterações)
 @app.route('/api/tasks', methods=['GET', 'POST'])
 def tasks():
+    # (Adicionado log de atividade no POST)
     cursor = mysql.connection.cursor()
     if request.method == 'GET':
         query = """
@@ -322,12 +356,16 @@ def tasks():
         )
         mysql.connection.commit()
         cursor.close()
+        
+        # NOVO LOG:
+        log_activity(creator_id, f"criou a tarefa: '{data.get('title')}'")
+        
         return jsonify({'message': 'Tarefa criada com sucesso.'}), 201
 
-# --- Demais rotas (manage_task, comments, chat_messages) permanecem iguais ---
-# (Sem alterações)
+
 @app.route('/api/tasks/<int:task_id>', methods=['GET', 'PUT', 'DELETE'])
 def manage_task(task_id):
+    # (Adicionado log de atividade no PUT e DELETE)
     cursor = mysql.connection.cursor()
     if request.method == 'GET':
         cursor.execute("SELECT * FROM tasks WHERE id = %s", (task_id,))
@@ -341,29 +379,47 @@ def manage_task(task_id):
 
     if request.method == 'PUT':
         data = request.json
+        # ATUALIZADO: Precisamos saber QUEM está fazendo a ação
+        acting_user_id = data.get('acting_user_id')
+        
         if 'completed' in data:
+            # Lógica de concluir/reabrir
             cursor.execute("UPDATE tasks SET completed = %s WHERE id = %s", (data['completed'], task_id))
+            action_text = "concluiu" if data['completed'] else "reabriu"
+            log_activity(acting_user_id, f"{action_text} a tarefa ID {task_id}.")
         else:
+            # Lógica de edição
             assigned_to_id = data.get('assigned_to_id') or None
             due_date = data.get('due_date') or None
             cursor.execute(
                 "UPDATE tasks SET title = %s, description = %s, priority = %s, due_date = %s, assigned_to_id = %s WHERE id = %s",
                 (data.get('title'), data.get('description'), data.get('priority'), due_date, assigned_to_id, task_id)
             )
+            log_activity(acting_user_id, f"editou a tarefa ID {task_id} (novo título: '{data.get('title')}')")
+            
         mysql.connection.commit()
         cursor.close()
         return jsonify({'message': f'Tarefa {task_id} atualizada.'})
 
     if request.method == 'DELETE':
+        # ATUALIZADO: Precisamos saber QUEM está fazendo a ação
+        # Tenta pegar o JSON, se falhar (sem corpo), usa um dict vazio
+        data = request.json if request.is_json else {}
+        acting_user_id = data.get('acting_user_id')
+        
         cursor.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
         mysql.connection.commit()
         cursor.close()
+        
+        # NOVO LOG:
+        log_activity(acting_user_id, f"excluiu a tarefa ID {task_id}.")
+        
         return jsonify({'message': f'Tarefa {task_id} deletada.'})
 
 
 @app.route('/api/tasks/<int:task_id>/comments', methods=['GET', 'POST'])
 def comments(task_id):
-    # (Sem alterações)
+    # (Adicionado log de atividade no POST)
     cursor = mysql.connection.cursor()
     if request.method == 'GET':
         cursor.execute("SELECT tc.*, u.username FROM task_comments tc JOIN users u ON tc.user_id = u.id WHERE tc.task_id = %s ORDER BY tc.timestamp ASC", (task_id,))
@@ -375,15 +431,21 @@ def comments(task_id):
     
     if request.method == 'POST':
         data = request.json
-        cursor.execute("INSERT INTO task_comments (task_id, user_id, text) VALUES (%s, %s, %s)", (task_id, data.get('user_id'), data.get('text')))
+        user_id = data.get('user_id')
+        text = data.get('text')
+        cursor.execute("INSERT INTO task_comments (task_id, user_id, text) VALUES (%s, %s, %s)", (task_id, user_id, text))
         mysql.connection.commit()
         cursor.close()
+        
+        # NOVO LOG:
+        log_activity(user_id, f"comentou na tarefa ID {task_id}: '{text[:30]}...'")
+        
         return jsonify({'message': 'Comentário adicionado.'}), 201
 
 
 @app.route('/api/chat/messages', methods=['GET', 'POST'])
 def chat_messages():
-    # (Sem alterações)
+    # (Sem alterações, log de chat não foi solicitado)
     cursor = mysql.connection.cursor()
     if request.method == 'GET':
         cursor.execute("SELECT cm.*, u.username, u.role FROM chat_messages cm JOIN users u ON cm.user_id = u.id ORDER BY cm.timestamp ASC")
@@ -399,6 +461,32 @@ def chat_messages():
         mysql.connection.commit()
         cursor.close()
         return jsonify({'message': 'Mensagem enviada.'}), 201
+
+
+# --- NOVA ROTA PARA LOG DE ATIVIDADES ---
+@app.route('/api/activity-log', methods=['GET'])
+def get_activity_log():
+    """Retorna as últimas 50 atividades do sistema."""
+    cursor = mysql.connection.cursor()
+    query = """
+        SELECT a.id, a.action_text, a.timestamp, u.username
+        FROM activity_log a
+        LEFT JOIN users u ON a.user_id = u.id
+        ORDER BY a.timestamp DESC
+        LIMIT 50
+    """
+    cursor.execute(query)
+    logs = cursor.fetchall()
+    cursor.close()
+    
+    # Converte datetime para string ISO
+    for log_entry in logs:
+        if isinstance(log_entry.get('timestamp'), datetime):
+            log_entry['timestamp'] = log_entry['timestamp'].isoformat()
+        if not log_entry['username']:
+            log_entry['username'] = "[Usuário Deletado]"
+            
+    return jsonify(logs)
 
 
 if __name__ == '__main__':
