@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('show-forgot-password').addEventListener('click', (e) => { e.preventDefault(); showSection(document.getElementById('forgot-password-section')); });
     document.getElementById('show-login-from-forgot').addEventListener('click', (e) => { e.preventDefault(); showSection(document.getElementById('login-section')); });
 
-    // Registration (keeps original behavior; minimal updates)
+    // Registration (sem alterações)
     try {
         document.getElementById('register-form').elements.role.forEach(radio => {
             radio.addEventListener('change', (e) => {
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Login
+    // Login (sem alterações)
     document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const err = document.getElementById('login-error');
@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Forgot password
+    // Forgot password (sem alterações)
     document.getElementById('forgot-password-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const fb = document.getElementById('forgot-feedback');
@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Force reset form inside modal
+    // Force reset form inside modal (sem alterações)
     try {
         document.getElementById('force-reset-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -146,9 +146,14 @@ document.addEventListener('DOMContentLoaded', () => {
         appContainer.style.display = 'flex';
         document.getElementById('chat-container').style.display = 'block';
         document.getElementById('header-username').textContent = currentUser.username;
+        
+        const isAdmin = currentUser.role === 'admin';
+        document.getElementById('nav-activity-log').style.display = isAdmin ? 'list-item' : 'none';
+        
         setupEventListeners();
         renderView('dashboard');
     }
+    
     function logout() {
         currentUser = null; allTasks = [];
         appContainer.style.display = 'none';
@@ -161,13 +166,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENERS GERAIS ---
     function setupEventListeners() {
+        // A lógica do botão de toggle é universal e não depende do tipo de usuário.
+        // Esta função garante que o evento seja adicionado assim que a sessão é iniciada.
         document.getElementById('sidebar-toggle').addEventListener('click', () => {
             document.body.classList.toggle('sidebar-collapsed');
         });
+
         document.getElementById('nav-logout').addEventListener('click', logout);
+        
         document.getElementById('header-user-info').addEventListener('click', () => {
             renderView('profile');
         });
+
         document.querySelectorAll('#sidebar .components li').forEach(item => {
             item.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -182,10 +192,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelector('#sidebar .components li.active')?.classList.remove('active');
         document.querySelector(`#sidebar .components li[data-view="${viewName}"]`)?.classList.add('active');
         document.getElementById('header-search-container').style.display = 'none';
+
         if (viewName === 'dashboard') renderDashboardView();
         else if (viewName === 'analytics') renderAnalyticsView();
         else if (viewName === 'profile') renderProfileView();
         else if (viewName === 'team') renderTeamView();
+        else if (viewName === 'log') renderActivityLogView();
     }
 
     // --- PROFILE VIEW ---
@@ -347,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchAndRenderTasks();
     }
 
-    // --- ANALYTICS VIEW (sem alteração) ---
+    // --- ANALYTICS VIEW ---
     async function renderAnalyticsView() {
         mainContent.innerHTML = `
             <div class="content-header"><h2>Análise de Desempenho</h2></div>
@@ -388,6 +400,61 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('team-list').innerHTML = `<p class="text-danger">${error.message}</p>`;
         }
     }
+    
+    // --- ACTIVITY LOG VIEW ---
+    async function renderActivityLogView() {
+        mainContent.innerHTML = `
+            <div class="content-header">
+                <h2>Log de Atividades do Sistema</h2>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    <div id="activity-log-container" class="table-responsive">
+                        <div class="text-center p-5"><div class="spinner-border text-primary" role="status"></div></div>
+                    </div>
+                </div>
+            </div>`;
+        
+        try {
+            const response = await fetch(`${API_URL}/activity-log`);
+            if (!response.ok) throw new Error('Não foi possível carregar o log de atividades.');
+            const logs = await response.json();
+            
+            const container = document.getElementById('activity-log-container');
+            if (logs.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center">Nenhuma atividade registrada.</p>';
+                return;
+            }
+            
+            let tableHtml = `
+                <table class="table table-striped table-hover activity-log-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Usuário</th>
+                            <th scope="col">Ação</th>
+                            <th scope="col">Data e Hora</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            logs.forEach(log => {
+                const timestamp = new Date(log.timestamp).toLocaleString('pt-BR');
+                tableHtml += `
+                    <tr>
+                        <td><strong>${log.username || '[desconhecido]'}</strong></td>
+                        <td>${log.action_text}</td>
+                        <td class="text-muted small">${timestamp}</td>
+                    </tr>`;
+            });
+            
+            tableHtml += `</tbody></table>`;
+            container.innerHTML = tableHtml;
+            
+        } catch (error) {
+            document.getElementById('activity-log-container').innerHTML = `<p class="text-danger">${error.message}</p>`;
+        }
+    }
+
 
     // --- RENDERIZAÇÃO DAS TAREFAS ---
     function renderTasks() {
@@ -407,7 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const adminButtons = currentUser.role === 'admin' ? `<button class="btn btn-outline-secondary" title="Editar" data-action="edit" data-id="${task.id}"><i class="bi bi-pencil"></i></button><button class="btn btn-outline-danger" title="Excluir" data-action="delete" data-id="${task.id}"><i class="bi bi-trash"></i></button>` : '';
             const card = document.createElement('div');
             card.className = 'col-md-6 col-lg-4';
-            const completedStr = task.completed ? 'true' : 'false'; // para compatibilidade com outras partes da UI
+            const completedStr = task.completed ? 'true' : 'false';
             card.innerHTML = `
                 <div class="card h-100 task-card ${task.completed ? 'completed-task' : ''}">
                     <div class="task-actions">
@@ -433,59 +500,57 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- MODAIS / CHAT / HELPERS (inicialização) ---
-function initializeModalsAndChat() {
-    if (!editTaskModal) {
-        const el = document.getElementById('editTaskModal');
-        el.innerHTML = `<div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Editar Tarefa</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="edit-task-form"></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" form="edit-task-form" class="btn btn-primary">Salvar</button></div></div></div>`;
-        editTaskModal = new bootstrap.Modal(el);
-        el.querySelector('#edit-task-form').addEventListener('submit', handleEditTask);
-    }
-    if (!commentsModal) {
-        const el = document.getElementById('commentsModal');
-        el.innerHTML = `<div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Comentários</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="comments-list" class="mb-3" style="max-height: 400px; overflow-y: auto;"></div><form id="comment-form"><input type="hidden" id="comment-task-id"><div class="input-group"><input type="text" id="comment-input" class="form-control" placeholder="Adicionar comentário..." required autocomplete="off"><button class="btn btn-outline-primary" type="submit">Enviar</button></div></form></div></div></div>`;
-        commentsModal = new bootstrap.Modal(el);
-        el.querySelector('#comment-form').addEventListener('submit', handleAddComment);
-    }
-    if (!confirmationModal) {
-        const el = document.getElementById('confirmationModal');
-        el.innerHTML = `<div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Confirmar Ação</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p id="confirmation-modal-body"></p></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" id="confirm-action-btn" class="btn btn-danger">Confirmar</button></div></div></div>`;
-        confirmationModal = new bootstrap.Modal(el);
-    }
+    function initializeModalsAndChat() {
+        if (!editTaskModal) {
+            const el = document.getElementById('editTaskModal');
+            el.innerHTML = `<div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Editar Tarefa</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="edit-task-form"></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" form="edit-task-form" class="btn btn-primary">Salvar</button></div></div></div>`;
+            editTaskModal = new bootstrap.Modal(el);
+            el.querySelector('#edit-task-form').addEventListener('submit', handleEditTask);
+        }
+        if (!commentsModal) {
+            const el = document.getElementById('commentsModal');
+            el.innerHTML = `<div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Comentários</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="comments-list" class="mb-3" style="max-height: 400px; overflow-y: auto;"></div><form id="comment-form"><input type="hidden" id="comment-task-id"><div class="input-group"><input type="text" id="comment-input" class="form-control" placeholder="Adicionar comentário..." required autocomplete="off"><button class="btn btn-outline-primary" type="submit">Enviar</button></div></form></div></div></div>`;
+            commentsModal = new bootstrap.Modal(el);
+            el.querySelector('#comment-form').addEventListener('submit', handleAddComment);
+        }
+        if (!confirmationModal) {
+            const el = document.getElementById('confirmationModal');
+            el.innerHTML = `<div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Confirmar Ação</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p id="confirmation-modal-body"></p></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" id="confirm-action-btn" class="btn btn-danger">Confirmar</button></div></div></div>`;
+            confirmationModal = new bootstrap.Modal(el);
+        }
 
-    const chat = document.getElementById('chat-container');
-    if (!chat.innerHTML.trim()) {
-        chat.innerHTML = `
-            <div id="chat-bubble"><i class="bi bi-chat-dots-fill"></i></div>
-            <div id="chat-window">
-                <div class="chat-header">Chat da Equipe</div>
-                <div id="chat-messages"></div>
-                <form id="chat-form">
-                    <input type="text" id="chat-input" class="form-control" placeholder="Digite sua mensagem..." autocomplete="off">
-                    <button type="submit" class="btn btn-primary ms-2"><i class="bi bi-send-fill"></i></button>
-                </form>
-            </div>`;
+        const chat = document.getElementById('chat-container');
+        if (!chat.innerHTML.trim()) {
+            chat.innerHTML = `
+                <div id="chat-bubble"><i class="bi bi-chat-dots-fill"></i></div>
+                <div id="chat-window">
+                    <div class="chat-header">Chat da Equipe</div>
+                    <div id="chat-messages"></div>
+                    <form id="chat-form">
+                        <input type="text" id="chat-input" class="form-control" placeholder="Digite sua mensagem..." autocomplete="off">
+                        <button type="submit" class="btn btn-primary ms-2"><i class="bi bi-send-fill"></i></button>
+                    </form>
+                </div>`;
 
-        const chatBubble = chat.querySelector('#chat-bubble');
-        const chatWindow = document.getElementById('chat-window');
+            const chatBubble = chat.querySelector('#chat-bubble');
+            const chatWindow = document.getElementById('chat-window');
 
-        // 🔧 Correção: carregar mensagens quando o chat for aberto
-        chatBubble.addEventListener('click', async () => {
-            const isOpen = window.getComputedStyle(chatWindow).display === 'flex';
-            chatWindow.style.display = isOpen ? 'none' : 'flex';
+            chatBubble.addEventListener('click', async () => {
+                const isOpen = window.getComputedStyle(chatWindow).display === 'flex';
+                chatWindow.style.display = isOpen ? 'none' : 'flex';
 
-            // Se o chat acabou de ser aberto, renderiza as mensagens
-            if (!isOpen) {
-                try {
-                    await renderChatMessages();
-                } catch (err) {
-                    console.error('Erro ao carregar mensagens do chat:', err);
+                if (!isOpen) {
+                    try {
+                        await renderChatMessages();
+                    } catch (err) {
+                        console.error('Erro ao carregar mensagens do chat:', err);
+                    }
                 }
-            }
-        });
+            });
 
-        chat.querySelector('#chat-form').addEventListener('submit', handleSendChatMessage);
+            chat.querySelector('#chat-form').addEventListener('submit', handleSendChatMessage);
+        }
     }
-}
 
 
     // --- UTIL: popula dropdown de responsáveis ---
@@ -533,7 +598,6 @@ function initializeModalsAndChat() {
             'edit': () => handleOpenEditModal(taskId),
             'delete': () => handleDeleteTask(taskId),
             'comments': () => handleOpenCommentsModal(taskId),
-            // now we pass only the taskId; handleToggleComplete will determine current state from allTasks
             'toggle-complete': () => handleToggleComplete(taskId)
         };
         if (actions[action]) actions[action]();
@@ -574,7 +638,8 @@ function initializeModalsAndChat() {
             description: form.elements['edit-task-description'].value,
             priority: parseInt(form.elements['edit-task-priority'].value),
             due_date: form.elements['edit-task-due-date'].value || null,
-            assigned_to_id: assigneeId ? parseInt(assigneeId) : null
+            assigned_to_id: assigneeId ? parseInt(assigneeId) : null,
+            acting_user_id: currentUser.id
         };
         try {
             const res = await fetch(`${API_URL}/tasks/${taskId}`, {
@@ -590,31 +655,28 @@ function initializeModalsAndChat() {
         }
     }
 
-    // --- CORREÇÃO ROBUSTA: alterna complete usando estado de allTasks ---
     async function handleToggleComplete(taskId) {
         try {
-            // Primeiro tentamos achar a tarefa no allTasks
             let task = allTasks.find(t => t.id === taskId);
-            // Se não estiver carregada, buscamos do servidor
             if (!task) {
                 const resTask = await fetch(`${API_URL}/tasks/${taskId}`);
                 if (!resTask.ok) throw new Error('Não foi possível obter o estado da tarefa.');
                 task = await resTask.json();
             }
 
-            const currentCompleted = !!task.completed; // garante boolean
-            const payload = { completed: !currentCompleted };
-
-            // Alguns backends aceitam 0/1; se necessário, poderíamos converter:
-            // payload.completed = !currentCompleted ? 1 : 0;
+            const currentCompleted = !!task.completed;
+            const payload = { 
+                completed: !currentCompleted,
+                acting_user_id: currentUser.id
+            };
+            
             const res = await fetch(`${API_URL}/tasks/${taskId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json().catch(() => ({})); // se não retornar json
+            const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || data.message || 'Erro ao alternar conclusão');
-            // Recarrega tarefas para manter allTasks sincronizado e re-renderiza
             await fetchAndRenderTasks();
         } catch (error) {
             alert(`Erro: ${error.message}`);
@@ -629,7 +691,11 @@ function initializeModalsAndChat() {
 
         const performDelete = async () => {
             try {
-                const res = await fetch(`${API_URL}/tasks/${taskId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
+                const res = await fetch(`${API_URL}/tasks/${taskId}`, { 
+                    method: 'DELETE', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ acting_user_id: currentUser.id })
+                });
                 let data;
                 try { data = await res.json(); } catch (e) { data = {}; }
                 if (!res.ok) {
@@ -754,28 +820,5 @@ function initializeModalsAndChat() {
             alert(error.message);
         }
     }
-   function setupEventListeners() {
-        document.getElementById('sidebar-toggle').addEventListener('click', () => {
-            document.body.classList.toggle('sidebar-collapsed');
-        });
-        
-        document.getElementById('nav-logout').addEventListener('click', logout);
-        
-        // ATUALIZADO: Agora navega para a view de perfil
-        document.getElementById('header-user-info').addEventListener('click', () => {
-            renderView('profile');
-        });
-        
-        // (Removido o listener do profileForm)
-
-        document.querySelectorAll('#sidebar .components li').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.preventDefault();
-                const view = item.getAttribute('data-view');
-                if (view) renderView(view);
-            });
-        });
-    }
-
     
 });
